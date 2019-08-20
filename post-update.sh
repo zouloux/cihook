@@ -7,3 +7,5 @@ echo $1;
 commitMsg=$(git log -1 --pretty=%B)
 echo $commitMsg
 pwd
+
+cihook run

@@ -1,0 +1,14 @@
+{
+	"branches" : {
+		"feature/*" : [
+
+		]
+	},
+	
+	"actions" : {
+		"staging" : [
+		],
+		"production" : [
+		]
+	}
+}
