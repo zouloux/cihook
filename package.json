@@ -1,0 +1,28 @@
+{
+  "name": "@zouloux/cihook",
+  "version": "0.1.1",
+  "description": "Start CI node scripts on git server.",
+  "main": "index.js",
+  "bin": {
+    "cihook": "cihook.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zouloux/cihook.git"
+  },
+  "keywords": [
+    "ci",
+    "hook",
+    "git",
+    "node"
+  ],
+  "author": "Alexis Bouhet",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/zouloux/cihook/issues"
+  },
+  "homepage": "https://github.com/zouloux/cihook#readme"
+}
