@@ -1,13 +1,19 @@
 const fs = require('fs');
 const path = require('path');
 const stripIndent = require('common-tags').stripIndent;
+const crypto = require('crypto');
+const rimraf = require('rimraf').sync;
+const childProcess = require('child_process');
+const sanitize = require("sanitize-filename");
+
 
 let args;
 let flags;
 let config;
 let workspace;
 
-//config = JSON.parse( fs.readFileSync('cihookrc.json').toString() );
+
+const postUpdatePath = path.join(__dirname, 'post-update.sh');
 
 /**
  * TODO : Explain why
@@ -22,6 +28,32 @@ const postUpdateScriptTemplate = (node, script) => stripIndent`
 
 	${node} ${script} run $path $branch $commit
 `;
+
+function exec ( message, command )
+{
+	console.log( message )
+	childProcess.execSync( command )
+}
+
+function hash ( content, length = 8 )
+{
+	return crypto.createHash('md5').update( content ).digest('hex').substring( 0, length );
+}
+
+function slugHash ( content, length )
+{
+	// Slugify to keep folder path human readable
+	const slug = content
+		.replace(/[\/.\:.\@.]/g, '-') 	// Convert path related chars to dashes
+        .replace(/\-{2,}/g, '-')        // Deleting multiple dashes
+        .replace(/^\-+|\-+$/g, '')		// Remove leading and trailing slashes);
+
+    // Sanitize slugified content and append a small hash to avoid collisions
+	return [
+		sanitize( slug ),
+		hash( content, length )
+	].join('-')
+}
 
 /**
  *
@@ -49,7 +81,6 @@ function initConfig ( createNeededFiles = true )
 		fs.mkdirSync(workspace);
 
 	// Check if post-update script has already been created
-	const postUpdatePath = path.join(__dirname, 'post-update.sh');
 	if ( !fs.existsSync(postUpdatePath) )
 	{
 		// Create it from template and add it to this package folder
@@ -65,7 +96,7 @@ module.exports = {
 	{
 		initConfig( false );
 		config.set('workspace', gitPath);
-		console.log('Cihook workspace set to', gitPath);
+		return `Cihook workspace set to ${gitPath}`;
 	},
 	
 	clean ()
@@ -77,12 +108,58 @@ module.exports = {
 	link ( gitPath )
 	{
 		initConfig();
-		console.log('Link to', gitPath);
+
+		if ( !fs.existsSync( path.join(gitPath, 'hooks') ) )
+			throw new Error('This path is not a valid git repository (missing hooks directory).', 1);
+
+		fs.symlinkSync(postUpdatePath, path.join(gitPath, 'hooks/post-update'));
+
+		return `${gitPath} repository successfully hooked to cihook.`;
 	},
 
-	run ( gitPath, branch, message )
+	run ( gitPath, branch = 'master', message = '' )
 	{
 		initConfig();
-		console.log('Run hook', gitPath, branch, message );
+
+		//console.log('Run hook', gitPath, branch, message );
+
+		const projectPath = path.join( workspace, slugHash( gitPath ) );
+		const branchPath = path.join( projectPath, slugHash( branch ) );
+
+		if ( message.indexOf('--cleanProject') > 0)
+		{
+			console.log('Cleaning project workspace ...');
+			rimraf( projectPath );
+		}
+		if ( message.indexOf('--cleanBranch') > 0 || message.indexOf('--clean') > 0 )
+		{
+			console.log('Cleaning branch workspace ...');
+			rimraf( branchPath );
+		}
+
+		if ( !fs.existsSync( projectPath ) )
+			fs.mkdirSync( projectPath );
+
+		// git --no-pager --git-dir /path/to/bar/repo.git show branch:path/to/file >file
+
+		// TODO : Get ci hook config file and cache if
+		// TODO : Halt and warning if not exists
+
+		//exec('OOOO', `git --no-pager --git-dir ${gitPath} show ${branch}:cihook.js > ${branchPath}.js`);
+		//process.exit(0);
+
+		// TODO : Parse config file and clone if needed
+		
+		! fs.existsSync( branchPath )
+		? exec(
+			`Cloning project workspace ...`,
+			`git clone ${gitPath} ${branchPath}`
+		)
+		: exec(
+			`Updating project workspace ...`,
+			`cd ${branchPath} && git pull`
+		);
+
+		// TODO : Exec config file actions
 	}
 };

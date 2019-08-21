@@ -4,8 +4,6 @@ const cihook = require('./index');
 const args = require('args');
 const chalk = require('chalk');
 
-let hadAction = false;
-
 /**
  * Get path from arguments and throw error if there is no path given.
  */
@@ -25,20 +23,32 @@ function getPath ()
  */
 function processAction ( name, sub, options )
 {
-	// Do not show help
-	hadAction = true;
+	let result;
+	try
+	{
+		if ( name === 'setup' )
+			result = cihook.setup( getPath() );
 
-	if ( name == 'setup' )
-		cihook.setup( getPath() )
+		else if ( name === 'clean' )
+			result = cihook.clean();
 
-	else if ( name == 'clean' )
-		cihook.clean()
+		else if ( name === 'link' )
+			result = cihook.link( getPath() );
 
-	else if ( name == 'link' )
-		cihook.link( getPath() )
+		else if ( name === 'run' )
+			result = cihook.run( getPath(), options.branch, options.message );
+	}
+	catch (e)
+	{
+		console.error( e.message );
+		process.exit( e.code || 1);
+	}
 
-	else if ( name == 'run' )
-		cihook.run( getPath(), options.branch, options.message );
+	if ( typeof result === 'string' )
+	{
+		console.log( result );
+		process.exit(0);
+	}
 }
 
 /**
@@ -68,4 +78,4 @@ args
 args.parse( process.argv );
 
 // Show help if no action has been found
-hadAction || args.showHelp();
+args.showHelp();
