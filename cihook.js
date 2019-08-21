@@ -4,6 +4,16 @@ const cihook = require('./index');
 const args = require('args');
 const chalk = require('chalk');
 
+
+// TODO : All clean actions
+// TODO : Run action
+// TODO : Examples
+// TODO : README.md
+
+// TODO IDEA Remote run without push ? with git URL ?
+
+let hadAction = false;
+
 /**
  * Get path from arguments and throw error if there is no path given.
  */
@@ -23,12 +33,20 @@ function getPath ()
  */
 function processAction ( name, sub, options )
 {
+	// Do not show help since we had an action
+	hadAction = true;
+
+	// Try to execute action
 	let result;
 	try
 	{
 		if ( name === 'setup' )
 			result = cihook.setup( getPath() );
 
+		// TODO : Clean all
+		// TODO : Clean project
+		// TODO : Clean branch
+		// TODO : Clean older than
 		else if ( name === 'clean' )
 			result = cihook.clean();
 
@@ -38,16 +56,19 @@ function processAction ( name, sub, options )
 		else if ( name === 'run' )
 			result = cihook.run( getPath(), options.branch, options.message );
 	}
-	catch (e)
+
+	// Print error to stderr and exit as error
+	catch ( e )
 	{
 		console.error( e.message );
 		process.exit( e.code || 1);
 	}
 
+	// Print result to stdout and exit as success
 	if ( typeof result === 'string' )
 	{
 		console.log( result );
-		process.exit(0);
+		process.exit( 0 );
 	}
 }
 
@@ -78,4 +99,4 @@ args
 args.parse( process.argv );
 
 // Show help if no action has been found
-args.showHelp();
+if ( !hadAction ) args.showHelp();

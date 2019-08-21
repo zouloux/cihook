@@ -6,12 +6,8 @@ const rimraf = require('rimraf').sync;
 const childProcess = require('child_process');
 const sanitize = require("sanitize-filename");
 
-
-let args;
-let flags;
 let config;
 let workspace;
-
 
 const postUpdatePath = path.join(__dirname, 'post-update.sh');
 
@@ -149,7 +145,7 @@ module.exports = {
 		//process.exit(0);
 
 		// TODO : Parse config file and clone if needed
-		
+
 		! fs.existsSync( branchPath )
 		? exec(
 			`Cloning project workspace ...`,
