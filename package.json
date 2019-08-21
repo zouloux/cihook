@@ -1,6 +1,6 @@
 {
   "name": "@zouloux/cihook",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Start CI node scripts on git server.",
   "main": "cihook.js",
   "bin": {
