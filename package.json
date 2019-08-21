@@ -28,5 +28,8 @@
   "dependencies": {
     "args": "^5.0.1",
     "configstore": "^5.0.0"
+  },
+  "devDependencies": {
+    "common-tags": "^1.8.0"
   }
 }
