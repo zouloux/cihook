@@ -65,7 +65,7 @@ function initConfig ( createNeededFiles = true )
 	// Create a new config store for this package
 	config = new Configstore(packageJson.name, {
 		// Default workspace path
-		'workspace': '~/cihook-workspace/'
+		'workspace': path.join( require('os').homedir(), 'cihook-workspace' )
 	});
 
 	// Get workspace path from config store
@@ -110,7 +110,16 @@ module.exports = {
 		if ( !fs.existsSync( path.join(gitPath, 'hooks') ) )
 			throw new Error('This path is not a valid git repository (missing hooks directory).');
 
-		fs.symlinkSync(postUpdatePath, path.join(gitPath, 'hooks/post-update'));
+		const symlinkPath = path.join(gitPath, 'hooks/post-update');
+
+		if ( fs.existsSync(symlinkPath) )
+		{
+			const oldPath = postUpdatePath + '.old';
+			fs.existsSync(oldPath) && fs.unlinkSync(oldPath);
+			fs.renameSync(symlinkPath, symlinkPath + '.old');
+		}
+
+		fs.symlinkSync(postUpdatePath, symlinkPath);
 
 		return `${gitPath} repository successfully hooked to cihook.`;
 	},
