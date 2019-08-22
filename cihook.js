@@ -61,7 +61,7 @@ function processAction ( name, sub, options )
 	catch ( e )
 	{
 		console.error( e.message );
-		process.exit( e.code || 1);
+		process.exit( 1 );
 	}
 
 	// Print result to stdout and exit as success

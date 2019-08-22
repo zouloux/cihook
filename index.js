@@ -22,13 +22,15 @@ const postUpdateScriptTemplate = (node, script) => stripIndent`
 	branch=$1
 	commit=$(git log -1 --pretty=%B)
 
+	# Call node exec and script with absolute path
+	# To be compatible with any Git shell ( missing PATH )
 	${node} ${script} run $path $branch $commit
 `;
 
 function exec ( message, command )
 {
-	console.log( message )
-	childProcess.execSync( command )
+	console.log( message );
+	return childProcess.execSync( command )
 }
 
 function hash ( content, length = 8 )
@@ -40,9 +42,9 @@ function slugHash ( content, length )
 {
 	// Slugify to keep folder path human readable
 	const slug = content
-		.replace(/[\/.\:.\@.]/g, '-') 	// Convert path related chars to dashes
-        .replace(/\-{2,}/g, '-')        // Deleting multiple dashes
-        .replace(/^\-+|\-+$/g, '')		// Remove leading and trailing slashes);
+		.replace(/[\/.:@]/g, '-') 	// Convert path related chars to dashes
+        .replace(/-{2,}/g, '-')     // Deleting multiple dashes
+        .replace(/^-+|-+$/g, '');	// Remove leading and trailing slashes);
 
     // Sanitize slugified content and append a small hash to avoid collisions
 	return [
@@ -71,7 +73,7 @@ function initConfig ( createNeededFiles = true )
 
 	// Next lines will create needed files
 	if ( !createNeededFiles ) return;
-	
+
 	// Create workspace folder if it does not already exists
 	if ( !fs.existsSync(workspace) )
 		fs.mkdirSync(workspace);
@@ -94,7 +96,7 @@ module.exports = {
 		config.set('workspace', gitPath);
 		return `Cihook workspace set to ${gitPath}`;
 	},
-	
+
 	clean ()
 	{
 		initConfig();
@@ -106,7 +108,7 @@ module.exports = {
 		initConfig();
 
 		if ( !fs.existsSync( path.join(gitPath, 'hooks') ) )
-			throw new Error('This path is not a valid git repository (missing hooks directory).', 1);
+			throw new Error('This path is not a valid git repository (missing hooks directory).');
 
 		fs.symlinkSync(postUpdatePath, path.join(gitPath, 'hooks/post-update'));
 
@@ -141,8 +143,21 @@ module.exports = {
 		// TODO : Get ci hook config file and cache if
 		// TODO : Halt and warning if not exists
 
-		//exec('OOOO', `git --no-pager --git-dir ${gitPath} show ${branch}:cihook.js > ${branchPath}.js`);
-		//process.exit(0);
+		let cihookConfigContent;
+		try
+		{
+			cihookConfigContent = exec(
+				'Getting cihook configuration ...',
+				`git --no-pager --git-dir ${gitPath} show ${branch}:cihook.js > ${branchPath}.js`
+			);
+		}
+		catch ( e )
+		{
+			console.error(`ERROR`, e.message);
+		}
+
+		console.log('content', cihookConfigContent);
+		process.exit(0);
 
 		// TODO : Parse config file and clone if needed
 
