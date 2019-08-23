@@ -169,25 +169,25 @@ module.exports = {
 		});
 		*/
 
-		// Message to lower case to get flags in any case
-		const lowMessage = message.toLowerCase();
+		// Get flags from message
+		const flags = message.toLowerCase().split(' ').filter( a => a.indexOf('--') === 0 ).map( a => a.substring(2, a.length) );
 
 		// Clean all project
-		if ( lowMessage.indexOf('--cleanproject') > 0)
+		if ( flags.indexOf('cleanproject') >= 0 )
 		{
 			console.log('Cleaning project workspace ...');
 			rimraf( projectPath );
 		}
 
 		// Clean branch
-		if ( lowMessage.indexOf('--cleanbranch') > 0 || lowMessage.indexOf('--clean') > 0 )
+		if ( flags.indexOf('cleanbranch') >= 0 || flags.indexOf('clean') >= 0 )
 		{
 			console.log('Cleaning branch workspace ...');
 			rimraf( branchPath );
 		}
 
 		// Do not continue if we have a nohook flag
-		if ( lowMessage.indexOf('--nohook') > 0 )
+		if ( flags.indexOf('nohook') >= 0 )
 			return `CI Hook disabled with --nohook flag.`;
 
 		// Create project workspace folder
@@ -237,10 +237,10 @@ module.exports = {
 			 */
 			pull ()
 			{
-				!fs.existsSync( branchPath )
+				! fs.existsSync( branchPath )
 				? exec(
 					`Cloning project workspace ...`,
-					`git clone ${gitPath} ${branchPath} && git checkout ${branch}`
+					`mkdir ${branchPath} && cd ${branchPath} && git clone ${gitPath} . && git checkout ${branch}`
 				)
 				: exec(
 					`Updating project workspace ...`,
@@ -268,6 +268,6 @@ module.exports = {
 		};
 
 		// Run hook with cihook tools, branch and message info
-		cihookConfig.run( injectedCihook, branch, message );
+		cihookConfig.run( injectedCihook, branch, message, flags );
 	}
 };
