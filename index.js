@@ -82,7 +82,7 @@ function initConfig ( createNeededFiles = true )
 	if ( !fs.existsSync(postUpdatePath) )
 	{
 		// Create it from template and add it to this package folder
-		const scriptContent = postUpdateScriptTemplate( process.execPath, __filename );
+		const scriptContent = postUpdateScriptTemplate( process.execPath, path.join(__dirname, 'cihook.js') );
 		fs.writeFileSync( postUpdatePath, scriptContent );
 		fs.chmodSync(postUpdatePath, '0755');
 	}
@@ -112,16 +112,19 @@ module.exports = {
 
 		const symlinkPath = path.join(gitPath, 'hooks/post-update');
 
+		let stdout = '';
 		if ( fs.existsSync(symlinkPath) )
 		{
 			const oldPath = postUpdatePath + '.old';
 			fs.existsSync(oldPath) && fs.unlinkSync(oldPath);
 			fs.renameSync(symlinkPath, symlinkPath + '.old');
+			stdout += `post-update hook already exists. Moved to post-update.old.\n`;
 		}
 
 		fs.symlinkSync(postUpdatePath, symlinkPath);
+		stdout += `${gitPath} repository successfully hooked to cihook.`;
 
-		return `${gitPath} repository successfully hooked to cihook.`;
+		return stdout;
 	},
 
 	run ( gitPath, branch = 'master', message = '' )
@@ -130,10 +133,19 @@ module.exports = {
 
 		//const remoteURL = exec(`git config --get remote.origin.url`);
 
-		console.log('CI HOOK RUN', gitPath, branch, message);
-
-		const projectPath = path.join( workspace, slugHash( gitPath ) );
+		const lastFolderGitPath = gitPath.substring(gitPath.lastIndexOf('/'), gitPath.length);
+		const projectPath = path.join( workspace, slugHash( lastFolderGitPath ) );
 		const branchPath = path.join( projectPath, slugHash( branch ) );
+
+		console.log('CI HOOK RUN');
+		console.log({
+			gitPath,
+			branch,
+			message,
+			lastFolderGitPath,
+			projectPath,
+			branchPath
+		});
 
 		if ( message.indexOf('--cleanProject') > 0)
 		{
@@ -165,7 +177,7 @@ module.exports = {
 			console.error(`ERROR`, e.message);
 		}
 
-		console.log('content', cihookConfigContent);
+		console.log('content', cihookConfigContent.toString());
 		process.exit(0);
 
 		// TODO : Parse config file and clone if needed
