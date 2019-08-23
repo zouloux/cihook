@@ -35,7 +35,7 @@ function exec ( message, command, options = {} )
 	// Run command and return string
 	return childProcess.execSync( command, {
 		// Remove stdout ( but keep stderr ) if there is a message
-		stdio: message ? ['pipe', null, 'pipe'] : 'pipe',
+		stdio: message ? [0, null, 2] : 'pipe',
 		// Inject and override user options
 		...options
 	}).toString();
@@ -87,6 +87,7 @@ function initConfig ( createNeededFiles = true )
 		fs.mkdirSync(workspace);
 
 	// Check if post-update script has already been created
+	/*
 	if ( !fs.existsSync(postUpdatePath) )
 	{
 		// Create it from template and add it to this package folder
@@ -94,6 +95,7 @@ function initConfig ( createNeededFiles = true )
 		fs.writeFileSync( postUpdatePath, scriptContent );
 		fs.chmodSync(postUpdatePath, '0755');
 	}
+	*/
 }
 
 module.exports = {
@@ -118,9 +120,11 @@ module.exports = {
 		if ( !fs.existsSync( path.join(gitPath, 'hooks') ) )
 			throw new Error('This path is not a valid git repository (missing hooks directory).');
 
-		const symlinkPath = path.join(gitPath, 'hooks/post-update');
+		//const symlinkPath = path.join(gitPath, 'hooks/post-update');
+
 
 		let stdout = '';
+		/*
 		if ( fs.existsSync(symlinkPath) )
 		{
 			const oldPath = postUpdatePath + '.old';
@@ -128,8 +132,20 @@ module.exports = {
 			fs.renameSync(symlinkPath, symlinkPath + '.old');
 			stdout += `post-update hook already exists. Moved to post-update.old.\n`;
 		}
+		*/
 
-		fs.symlinkSync(postUpdatePath, symlinkPath);
+		//fs.symlinkSync(postUpdatePath, symlinkPath);
+
+		const hookPath = path.join(gitPath, 'hooks/post-update');
+
+		if (fs.existsSync(hookPath))
+			fs.unlinkSync(hookPath);
+
+		// Create it from template and add it to this package folder
+		const scriptContent = postUpdateScriptTemplate( process.execPath, path.join(__dirname, 'cihook.js') );
+		fs.writeFileSync( hookPath, scriptContent );
+		fs.chmodSync(postUpdatePath, '0755');
+
 		stdout += `${gitPath} repository successfully hooked to cihook.`;
 
 		return stdout;
@@ -240,11 +256,13 @@ module.exports = {
 				! fs.existsSync( branchPath )
 				? exec(
 					`Cloning project workspace ...`,
-					`mkdir ${branchPath} && cd ${branchPath} && git clone ${gitPath} . && git checkout ${branch}`
+					`git clone ${gitPath} ${branchName} && cd ${branchName} && git checkout ${branch}`,
+					{ cwd: projectPath }
 				)
 				: exec(
 					`Updating project workspace ...`,
-					`cd ${branchPath} && git pull && git checkout ${branch}`
+					`git pull && git checkout ${branch}`,
+					{ cwd: branchPath }
 				);
 			},
 
