@@ -85,17 +85,6 @@ function initConfig ( createNeededFiles = true )
 	// Create workspace folder if it does not already exists
 	if ( !fs.existsSync(workspace) )
 		fs.mkdirSync(workspace);
-
-	// Check if post-update script has already been created
-	/*
-	if ( !fs.existsSync(postUpdatePath) )
-	{
-		// Create it from template and add it to this package folder
-		const scriptContent = postUpdateScriptTemplate( process.execPath, path.join(__dirname, 'cihook.js') );
-		fs.writeFileSync( postUpdatePath, scriptContent );
-		fs.chmodSync(postUpdatePath, '0755');
-	}
-	*/
 }
 
 module.exports = {
@@ -120,70 +109,52 @@ module.exports = {
 		if ( !fs.existsSync( path.join(gitPath, 'hooks') ) )
 			throw new Error('This path is not a valid git repository (missing hooks directory).');
 
-		//const symlinkPath = path.join(gitPath, 'hooks/post-update');
-
-
-		let stdout = '';
-		/*
-		if ( fs.existsSync(symlinkPath) )
-		{
-			const oldPath = postUpdatePath + '.old';
-			fs.existsSync(oldPath) && fs.unlinkSync(oldPath);
-			fs.renameSync(symlinkPath, symlinkPath + '.old');
-			stdout += `post-update hook already exists. Moved to post-update.old.\n`;
-		}
-		*/
-
-		//fs.symlinkSync(postUpdatePath, symlinkPath);
-
 		const hookPath = path.join(gitPath, 'hooks/post-update');
 
-		if (fs.existsSync(hookPath))
-			fs.unlinkSync(hookPath);
+		fs.existsSync(hookPath) && fs.unlinkSync(hookPath);
 
 		// Create it from template and add it to this package folder
 		const scriptContent = postUpdateScriptTemplate( process.execPath, path.join(__dirname, 'cihook.js') );
 		fs.writeFileSync( hookPath, scriptContent );
 		fs.chmodSync(postUpdatePath, '0755');
 
-		stdout += `${gitPath} repository successfully hooked to cihook.`;
-
-		return stdout;
+		return `${gitPath} repository successfully hooked to cihook.`;
 	},
 
 	linkAll ( path )
 	{
-		const glob = require('glob');
+		const folders = require('glob').sync( path );
 
-		const folders = glob.sync( path );
-
-		console.log(folders);
+		folders.map( f => {
+			console.log( f );
+		});
 	},
 
 	run ( gitPath, branch = 'master', message = '' )
 	{
 		initConfig();
 
+		// Get compact branch name and
+		const refBranchStart = 'refs/heads/';
+		const compactBranchName = (
+			branch.indexOf(refBranchStart) === 0
+			? branch.substring(refBranchStart.length, branch.length)
+			: branch
+		);
+
 		// Get git path last folder to have an human readable part for the workspace
 		const lastFolderGitPath = gitPath.substring(gitPath.lastIndexOf('/'), gitPath.length);
 
 		// Create a project and branch path with hashes
 		const projectPath = path.join( workspace, slugHash( lastFolderGitPath ) );
-		const branchName = slugHash( branch );
-		const branchPath = path.join( projectPath, branchName );
+		const trunkName = slugHash( compactBranchName );
+		const branchPath = path.join( projectPath, trunkName );
 
-		//const remoteURL = exec(`git config --get remote.origin.url`);
-		/*
-		console.log('CI HOOK RUN');
-		console.log({
-			gitPath,
-			branch,
-			message,
-			lastFolderGitPath,
-			projectPath,
-			branchPath
-		});
-		*/
+		// $workspace/my-project-git-01234567/master-01234567.git
+
+		const remoteURL = exec(0, `git config --get remote.origin.url`);
+
+		console.log('CI HOOK RUN', { gitPath, remoteURL, branch, message, lastFolderGitPath, projectPath, branchPath });
 
 		// Get flags from message
 		const flags = message.toLowerCase().split(' ').filter( a => a.indexOf('--') === 0 ).map( a => a.substring(2, a.length) );
@@ -256,13 +227,13 @@ module.exports = {
 				! fs.existsSync( branchPath )
 				? exec(
 					`Cloning project workspace ...`,
-					`git clone ${gitPath} ${branchName} && cd ${branchName} && git checkout ${branch}`,
+					`git clone --single-branch --branch ${compactBranchName} ${remoteURL} ${trunkName}`,
 					{ cwd: projectPath }
 				)
 				: exec(
 					`Updating project workspace ...`,
-					`git pull && git checkout ${branch}`,
-					{ cwd: branchPath }
+					`git pull`,
+					{ cwd: trunkName }
 				);
 			},
 
