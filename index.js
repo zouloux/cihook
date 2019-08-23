@@ -128,11 +128,11 @@ module.exports = {
 	{
 		initConfig();
 
-		//console.log('Run hook', gitPath, branch, message );
+		//const remoteURL = exec(`git config --get remote.origin.url`);
 
-		const remoteURL = exec(`git config --get remote.origin.url`);
+		console.log('CI HOOK RUN', gitPath, branch, message);
 
-		const projectPath = path.join( workspace, slugHash( remoteURL ) );
+		const projectPath = path.join( workspace, slugHash( gitPath ) );
 		const branchPath = path.join( projectPath, slugHash( branch ) );
 
 		if ( message.indexOf('--cleanProject') > 0)
@@ -148,8 +148,6 @@ module.exports = {
 
 		if ( !fs.existsSync( projectPath ) )
 			fs.mkdirSync( projectPath );
-
-		// git --no-pager --git-dir /path/to/bar/repo.git show branch:path/to/file >file
 
 		// TODO : Get ci hook config file and cache if
 		// TODO : Halt and warning if not exists
