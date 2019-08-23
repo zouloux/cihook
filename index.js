@@ -24,7 +24,7 @@ const postUpdateScriptTemplate = (node, script) => stripIndent`
 
 	# Call node exec and script with absolute path
 	# To be compatible with any Git shell ( missing PATH )
-	${node} ${script} run $path $branch $commit
+	${node} ${script} run $path -b $branch -m $commit
 `;
 
 function exec ( message, command, options = {} )
@@ -142,8 +142,6 @@ module.exports = {
 		const folders = glob.sync( path );
 
 		console.log(folders);
-
-
 	},
 
 	run ( gitPath, branch = 'master', message = '' )
@@ -155,7 +153,8 @@ module.exports = {
 
 		// Create a project and branch path with hashes
 		const projectPath = path.join( workspace, slugHash( lastFolderGitPath ) );
-		const branchPath = path.join( projectPath, slugHash( branch ) );
+		const branchName = slugHash( branch );
+		const branchPath = path.join( projectPath, branchName );
 
 		//const remoteURL = exec(`git config --get remote.origin.url`);
 		/*
@@ -188,7 +187,7 @@ module.exports = {
 		}
 
 		// Do not continue if we have a nohook flag
-		if ( lowMessage.indexOf('--nohook'))
+		if ( lowMessage.indexOf('--nohook') > 0 )
 			return `CI Hook disabled with --nohook flag.`;
 
 		// Create project workspace folder
@@ -224,7 +223,7 @@ module.exports = {
 		// Check if there is a 'run' function if config file
 		if ( !('run' in cihookConfig) )
 		{
-			return `
+			return stripIndent`
 				Hook not found in cihook.js.
 				Add an exported function named 'run' to run hooks.
 				More info on https://github.com/zouloux/cihook
@@ -238,7 +237,7 @@ module.exports = {
 			 */
 			pull ()
 			{
-				! fs.existsSync( branchPath )
+				!fs.existsSync( branchPath )
 				? exec(
 					`Cloning project workspace ...`,
 					`git clone ${gitPath} ${branchPath} && git checkout ${branch}`
