@@ -18,7 +18,7 @@ const postUpdateScriptTemplate = (node, script) => stripIndent`
 	#!/bin/bash
 
 	# Get repo path / updated branch / last commit message
-	path=$(git config --get remote.origin.url)
+	path=$(pwd)
 	branch=$1
 	commit=$(git log -1 --pretty=%B)
 
@@ -29,8 +29,8 @@ const postUpdateScriptTemplate = (node, script) => stripIndent`
 
 function exec ( message, command )
 {
-	console.log( message );
-	return childProcess.execSync( command )
+	command != null && console.log( message );
+	return childProcess.execSync( command != null ? command : message )
 }
 
 function hash ( content, length = 8 )
@@ -130,7 +130,9 @@ module.exports = {
 
 		//console.log('Run hook', gitPath, branch, message );
 
-		const projectPath = path.join( workspace, slugHash( gitPath ) );
+		const remoteURL = exec(`git config --get remote.origin.url`);
+
+		const projectPath = path.join( workspace, slugHash( remoteURL ) );
 		const branchPath = path.join( projectPath, slugHash( branch ) );
 
 		if ( message.indexOf('--cleanProject') > 0)
