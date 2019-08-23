@@ -27,10 +27,10 @@ const postUpdateScriptTemplate = (node, script) => stripIndent`
 	${node} ${script} run $path $branch $commit
 `;
 
-function exec ( message, command )
+function exec ( message, command, cwd )
 {
-	command != null && console.log( message );
-	return childProcess.execSync( command != null ? command : message )
+	message && console.log( message );
+	return childProcess.execSync( command, cwd ? { cwd } : null );
 }
 
 function hash ( content, length = 8 )
@@ -127,13 +127,27 @@ module.exports = {
 		return stdout;
 	},
 
+	linkAll ( path )
+	{
+		const glob = require('glob');
+
+		const folders = glob.sync( path );
+
+		console.log(folders);
+
+
+	},
+
 	run ( gitPath, branch = 'master', message = '' )
 	{
 		initConfig();
 
 		//const remoteURL = exec(`git config --get remote.origin.url`);
 
+		// Get git path last folder to have an human readable part for the workspace
 		const lastFolderGitPath = gitPath.substring(gitPath.lastIndexOf('/'), gitPath.length);
+
+		// Create a project and branch path with hashes
 		const projectPath = path.join( workspace, slugHash( lastFolderGitPath ) );
 		const branchPath = path.join( projectPath, slugHash( branch ) );
 
@@ -147,51 +161,79 @@ module.exports = {
 			branchPath
 		});
 
+		// Clean all project
 		if ( message.indexOf('--cleanProject') > 0)
 		{
 			console.log('Cleaning project workspace ...');
 			rimraf( projectPath );
 		}
+
+		// Clean branch
 		if ( message.indexOf('--cleanBranch') > 0 || message.indexOf('--clean') > 0 )
 		{
 			console.log('Cleaning branch workspace ...');
 			rimraf( branchPath );
 		}
 
+		// Create project workspace folder
 		if ( !fs.existsSync( projectPath ) )
 			fs.mkdirSync( projectPath );
 
-		// TODO : Get ci hook config file and cache if
-		// TODO : Halt and warning if not exists
-
+		// Get cihook.js from repository
 		let cihookConfigContent;
 		try
 		{
-			cihookConfigContent = exec(
-				'Getting cihook configuration ...',
-				`git --no-pager --git-dir ${gitPath} show ${branch}:cihook.js > ${branchPath}.js`
-			);
+			cihookConfigContent = exec(0, `git --no-pager --git-dir ${gitPath} show ${branch}:cihook.js`);
 		}
 		catch ( e )
 		{
-			console.error(`ERROR`, e.message);
+			return stripIndent`
+				Cihook configuration file not found.
+				To enable CI-hook on this repo, create a cihook.js file in repository root.
+				More info on https://github.com/zouloux/cihook
+			`;
 		}
 
-		console.log('content', cihookConfigContent.toString());
-		process.exit(0);
+		// Try to parse cihook config file
+		let cihookConfig;
+		try
+		{
+			cihookConfig = require('require-from-string')( cihookConfigContent.toString() );
+		}
+		catch ( e )
+		{
+			throw new Error(`Parse error in cihook.js.`);
+		}
 
-		// TODO : Parse config file and clone if needed
+		if ( !('run' in cihookConfig) )
+		{
+			return `
+				Hook not found in cihook.js.
+				Add an exported function named 'run' to run hooks.
+				More info on https://github.com/zouloux/cihook
+			`;
+		}
 
-		! fs.existsSync( branchPath )
-		? exec(
-			`Cloning project workspace ...`,
-			`git clone ${gitPath} ${branchPath}`
-		)
-		: exec(
-			`Updating project workspace ...`,
-			`cd ${branchPath} && git pull`
-		);
+		const injectedCihook = {
+			pull ()
+			{
+				! fs.existsSync( branchPath )
+				? exec(
+					`Cloning project workspace ...`,
+					`git clone ${gitPath} ${branchPath}`
+				)
+				: exec(
+					`Updating project workspace ...`,
+					`cd ${branchPath} && git pull`
+				);
+			},
 
-		// TODO : Exec config file actions
+			exec ( message, command )
+			{
+				exec( message, command, branchPath );
+			}
+		};
+
+		cihookConfig.run( injectedCihook, branch, message );
 	}
 };

@@ -53,6 +53,9 @@ function processAction ( name, sub, options )
 		else if ( name === 'link' )
 			result = cihook.link( getPath() );
 
+		else if ( name === 'all' )
+			result = cihook.linkAll( getPath() );
+
 		else if ( name === 'run' )
 			result = cihook.run( getPath(), options.branch, options.message );
 	}
@@ -86,6 +89,11 @@ args.command('clean', 'Clear workspace', processAction);
  * LINK command
  */
 args.command('link', 'Link a git repository to cihook.', processAction);
+
+/**
+ * LINK ALL command
+ */
+args.command('all', 'Link all repositories from a glob pattern.', processAction);
 
 /**
  * RUN command
