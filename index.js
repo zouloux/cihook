@@ -27,10 +27,18 @@ const postUpdateScriptTemplate = (node, script) => stripIndent`
 	${node} ${script} run $path $branch $commit
 `;
 
-function exec ( message, command, cwd )
+function exec ( message, command, options = {} )
 {
+	// Show message if not falsy
 	message && console.log( message );
-	return childProcess.execSync( command, cwd ? { cwd } : null );
+
+	// Run command and return string
+	return childProcess.execSync( command, {
+		// Remove stdout ( but keep stderr ) if there is a message
+		stdio: message ? ['pipe', null, 'pipe'] : 'pipe',
+		// Inject and override user options
+		...options
+	}).toString();
 }
 
 function hash ( content, length = 8 )
@@ -142,8 +150,6 @@ module.exports = {
 	{
 		initConfig();
 
-		//const remoteURL = exec(`git config --get remote.origin.url`);
-
 		// Get git path last folder to have an human readable part for the workspace
 		const lastFolderGitPath = gitPath.substring(gitPath.lastIndexOf('/'), gitPath.length);
 
@@ -151,6 +157,8 @@ module.exports = {
 		const projectPath = path.join( workspace, slugHash( lastFolderGitPath ) );
 		const branchPath = path.join( projectPath, slugHash( branch ) );
 
+		//const remoteURL = exec(`git config --get remote.origin.url`);
+		/*
 		console.log('CI HOOK RUN');
 		console.log({
 			gitPath,
@@ -160,20 +168,28 @@ module.exports = {
 			projectPath,
 			branchPath
 		});
+		*/
+
+		// Message to lower case to get flags in any case
+		const lowMessage = message.toLowerCase();
 
 		// Clean all project
-		if ( message.indexOf('--cleanProject') > 0)
+		if ( lowMessage.indexOf('--cleanproject') > 0)
 		{
 			console.log('Cleaning project workspace ...');
 			rimraf( projectPath );
 		}
 
 		// Clean branch
-		if ( message.indexOf('--cleanBranch') > 0 || message.indexOf('--clean') > 0 )
+		if ( lowMessage.indexOf('--cleanbranch') > 0 || lowMessage.indexOf('--clean') > 0 )
 		{
 			console.log('Cleaning branch workspace ...');
 			rimraf( branchPath );
 		}
+
+		// Do not continue if we have a nohook flag
+		if ( lowMessage.indexOf('--nohook'))
+			return `CI Hook disabled with --nohook flag.`;
 
 		// Create project workspace folder
 		if ( !fs.existsSync( projectPath ) )
@@ -198,13 +214,14 @@ module.exports = {
 		let cihookConfig;
 		try
 		{
-			cihookConfig = require('require-from-string')( cihookConfigContent.toString() );
+			cihookConfig = require('require-from-string')( cihookConfigContent );
 		}
 		catch ( e )
 		{
 			throw new Error(`Parse error in cihook.js.`);
 		}
 
+		// Check if there is a 'run' function if config file
 		if ( !('run' in cihookConfig) )
 		{
 			return `
@@ -214,26 +231,44 @@ module.exports = {
 			`;
 		}
 
+		// Injected set of cihook tools for cihook.js file
 		const injectedCihook = {
+			/**
+			 * Pull current branch into workspace
+			 */
 			pull ()
 			{
 				! fs.existsSync( branchPath )
 				? exec(
 					`Cloning project workspace ...`,
-					`git clone ${gitPath} ${branchPath}`
+					`git clone ${gitPath} ${branchPath} && git checkout ${branch}`
 				)
 				: exec(
 					`Updating project workspace ...`,
-					`cd ${branchPath} && git pull`
+					`cd ${branchPath} && git pull && git checkout ${branch}`
 				);
 			},
 
-			exec ( message, command )
+			/**
+			 * Execute a command into current workspace
+			 * @param message Message to output into stdout. Flasy to output nothing.
+			 * @param command Command to execute on server. CWD will be in workspace.
+			 * @param options @see execSync options in node doc
+			 */
+			exec ( message, command, options = {} )
 			{
-				exec( message, command, branchPath );
+				return exec( message, command, {
+					// Working directory is workspace
+					cwd: branchPath,
+					// Default timeout is 1 hour
+					timeout: 60 * 60 * 1000,
+					// Injection and override user options
+					...options
+				});
 			}
 		};
 
+		// Run hook with cihook tools, branch and message info
 		cihookConfig.run( injectedCihook, branch, message );
 	}
 };
