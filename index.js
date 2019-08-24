@@ -152,9 +152,7 @@ module.exports = {
 
 		// $workspace/my-project-git-01234567/master-01234567.git
 
-		const remoteURL = exec(0, `git config --get remote.origin.url`);
-
-		console.log('CI HOOK RUN', { gitPath, remoteURL, branch, message, lastFolderGitPath, projectPath, branchPath });
+		console.log('CI HOOK RUN', { gitPath, branch, message, lastFolderGitPath, projectPath, branchPath });
 
 		// Get flags from message
 		const flags = message.toLowerCase().split(' ').filter( a => a.indexOf('--') === 0 ).map( a => a.substring(2, a.length) );
@@ -217,6 +215,8 @@ module.exports = {
 			`;
 		}
 
+		let env = '';
+
 		// Injected set of cihook tools for cihook.js file
 		const injectedCihook = {
 			/**
@@ -227,13 +227,13 @@ module.exports = {
 				! fs.existsSync( branchPath )
 				? exec(
 					`Cloning project workspace ...`,
-					`git clone --single-branch --branch ${compactBranchName} ${remoteURL} ${trunkName}`,
+					`${env}git clone --single-branch --branch ${compactBranchName} ${gitPath} ${trunkName}`,
 					{ cwd: projectPath }
 				)
 				: exec(
 					`Updating project workspace ...`,
-					`git pull`,
-					{ cwd: trunkName }
+					`${env}git pull`,
+					{ cwd: branchPath }
 				);
 			},
 
@@ -245,7 +245,7 @@ module.exports = {
 			 */
 			exec ( message, command, options = {} )
 			{
-				return exec( message, command, {
+				return exec( message, env + command, {
 					// Working directory is workspace
 					cwd: branchPath,
 					// Default timeout is 1 hour
@@ -255,6 +255,9 @@ module.exports = {
 				});
 			}
 		};
+
+		if ('env' in cihookConfig)
+			env = cihookConfig.env( branch, message, flags ) + ' && ';
 
 		// Run hook with cihook tools, branch and message info
 		cihookConfig.run( injectedCihook, branch, message, flags );
